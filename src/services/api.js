@@ -64,24 +64,6 @@ export async function checkWishSubmitted(uid, name) {
 }
 
 /**
- * Delete a wish (admin function)
- * @param {string} uid - Invitation UID
- * @param {number} wishId - Wish ID to delete
- * @returns {Promise<object>} Response with deletion confirmation
- */
-export async function deleteWish(uid, wishId) {
-  const response = await fetch(`${API_URL}/api/${uid}/wishes/${wishId}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to delete wish");
-  }
-  return response.json();
-}
-
-/**
  * Get attendance statistics
  * @param {string} uid - Invitation UID
  * @returns {Promise<object>} Response with stats data

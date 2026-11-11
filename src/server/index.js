@@ -14,6 +14,7 @@ import { zValidator } from "@hono/zod-validator";
 
 // Feature routes and schemas
 import { invitationRoutes, wishesRoutes } from "./features/index.js";
+import adminRoutes from "./features/admin/routes.js";
 import { uidParamSchema } from "./features/invitation/invitation.schema.js";
 import { getDbClient } from "./lib/db-client.js";
 import { AppError } from "./lib/errors.js";
@@ -74,6 +75,7 @@ app.onError((err, c) => {
 
 // Invitation routes: /api/invitation/:uid
 api.route("/invitation", invitationRoutes);
+api.route("/admin", adminRoutes);
 
 // Wishes routes: /api/:uid/wishes/*
 api.route("/:uid/wishes", wishesRoutes);
@@ -86,9 +88,9 @@ api.get("/:uid/stats", zValidator("param", uidParamSchema), async (c) => {
     const pool = await getDbClient(c);
     const result = await pool.query(
       `SELECT
-          COUNT(*) FILTER (WHERE attendance = 'ATTENDING') as attending,
-          COUNT(*) FILTER (WHERE attendance = 'NOT_ATTENDING') as not_attending,
-          COUNT(*) FILTER (WHERE attendance = 'MAYBE') as maybe,
+          COALESCE(SUM(CASE WHEN attendance = 'ATTENDING' THEN 1 ELSE 0 END), 0) as attending,
+          COALESCE(SUM(CASE WHEN attendance = 'NOT_ATTENDING' THEN 1 ELSE 0 END), 0) as not_attending,
+          COALESCE(SUM(CASE WHEN attendance = 'MAYBE' THEN 1 ELSE 0 END), 0) as maybe,
           COUNT(*) as total
        FROM wishes
        WHERE invitation_uid = $1`,

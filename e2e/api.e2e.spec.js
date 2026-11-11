@@ -101,12 +101,15 @@ vi.mock("../src/server/lib/db-client.js", () => {
       }
 
       // Wishes count query
-      if (sql.includes("SELECT COUNT(*)") && !sql.includes("FILTER")) {
+      if (
+        sql.includes("SELECT COUNT(*)") &&
+        !sql.includes("SUM(CASE")
+      ) {
         return { rows: [{ count: "2" }] };
       }
 
       // Stats query
-      if (sql.includes("FILTER")) {
+      if (sql.includes("SUM(CASE")) {
         return {
           rows: [
             {
@@ -255,15 +258,12 @@ describe("E2E: Sakeenah API", () => {
       expect(res.status).toBe(400);
     });
 
-    it("DELETE /api/:uid/wishes/:id - should delete a wish", async () => {
+    it("DELETE /api/:uid/wishes/:id - should require admin access", async () => {
       const res = await app.request("/api/e2e-test-wedding/wishes/1", {
         method: "DELETE",
       });
 
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
+      expect(res.status).toBe(404);
     });
 
     it("DELETE /api/:uid/wishes/:id - should return 404 for non-existent wish", async () => {

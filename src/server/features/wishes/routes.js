@@ -117,27 +117,6 @@ wishesRoutes.post("/", zValidator("json", createWishSchema), async (c) => {
 });
 
 /**
- * DELETE /:uid/wishes/:id
- * Delete a wish (admin only)
- */
-wishesRoutes.delete("/:id", async (c) => {
-  const uid = c.req.param("uid");
-  const id = c.req.param("id");
-
-  const pool = await getDbClient(c);
-  const result = await pool.query(
-    "DELETE FROM wishes WHERE id = $1 AND invitation_uid = $2 RETURNING id",
-    [id, uid],
-  );
-
-  if (result.rows.length === 0) {
-    throw new NotFoundError("Wish not found");
-  }
-
-  return c.json({ success: true, message: "Wish deleted" });
-});
-
-/**
  * GET /:uid/wishes/check/:name
  * Check if guest has already submitted a wish
  */

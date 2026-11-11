@@ -23,13 +23,6 @@ export const api = {
     return res.json();
   },
 
-  async deleteWish(uid, wishId) {
-    const res = await fetch(`${API_BASE}/api/${uid}/wishes/${wishId}`, {
-      method: "DELETE",
-    });
-    return res.json();
-  },
-
   // Stats
   async getStats(uid) {
     const res = await fetch(`${API_BASE}/api/${uid}/stats`);

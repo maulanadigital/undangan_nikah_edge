@@ -20,6 +20,7 @@
   ],
   "vars": {
     "PORT": "3000",
+    "ADMIN_EMAIL": "your-admin@email.com",
   },
   "routes": [
     {

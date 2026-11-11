@@ -253,39 +253,12 @@ describe("wishes routes", () => {
   });
 
   describe("DELETE /:uid/wishes/:id", () => {
-    it("should delete an existing wish", async () => {
-      mockPool = createMockPool({
-        "DELETE FROM wishes": { rows: [{ id: 1 }] },
-      });
-
-      getDbClient.mockResolvedValue(mockPool);
-
+    it("does not expose wish deletion through the public API", async () => {
       const res = await app.request("/test-wedding/wishes/1", {
         method: "DELETE",
       });
 
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.message).toBe("Wish deleted");
-    });
-
-    it("should return 404 for non-existent wish", async () => {
-      mockPool = createMockPool({
-        "DELETE FROM wishes": { rows: [] },
-      });
-
-      getDbClient.mockResolvedValue(mockPool);
-
-      const res = await app.request("/test-wedding/wishes/999", {
-        method: "DELETE",
-      });
-
-      const json = await res.json();
-
       expect(res.status).toBe(404);
-      expect(json.error).toBe("Wish not found");
     });
   });
 

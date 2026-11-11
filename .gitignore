@@ -33,6 +33,7 @@ coverage
 *.sln
 *.sw?
 .env
+.dev.vars*
 
 # Superpowers brainstorm sessions
 .superpowers/
