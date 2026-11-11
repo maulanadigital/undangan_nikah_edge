@@ -108,6 +108,17 @@ api.get("/:uid/stats", zValidator("param", uidParamSchema), async (c) => {
 
 app.route("/api", api);
 
+app.notFound((c) => {
+  if (
+    !c.req.path.startsWith("/api/") &&
+    ["GET", "HEAD"].includes(c.req.method) &&
+    c.env?.ASSETS
+  ) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+  return c.text("Not Found", 404);
+});
+
 // ============ Export ============
 
 export default app;
