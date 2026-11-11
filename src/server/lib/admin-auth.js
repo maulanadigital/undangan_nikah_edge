@@ -1,4 +1,4 @@
-const PASSWORD_ITERATIONS = 210_000;
+const PASSWORD_ITERATIONS = 100_000;
 const PASSWORD_BYTES = 256;
 const SESSION_SECONDS = 60 * 60 * 12;
 const encoder = new TextEncoder();
