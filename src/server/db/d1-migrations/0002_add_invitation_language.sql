@@ -1,0 +1,2 @@
+ALTER TABLE invitations
+ADD COLUMN language TEXT NOT NULL DEFAULT 'id';

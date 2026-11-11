@@ -55,6 +55,7 @@ invitationRoutes.get(
       brideName: invitation.bride_name,
       parentGroom: invitation.parent_groom,
       parentBride: invitation.parent_bride,
+      language: invitation.language || "id",
       date: invitation.wedding_date,
       time: invitation.time,
       location: invitation.location,

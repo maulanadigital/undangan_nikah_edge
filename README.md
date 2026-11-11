@@ -23,7 +23,7 @@ docker compose up -d    # or Docker
 | Runtime | Bun | Package mgmt & server |
 | Frontend | React 19 + Vite | UI & build |
 | Backend | Hono | Edge API framework |
-| Database | PostgreSQL | Multi-tenant storage |
+| Database | Cloudflare D1 (Workers) / PostgreSQL (local) | Multi-tenant storage |
 | Styling | Tailwind CSS v4 | Utility-first |
 | Animation | Motion | Declarative transitions |
 | Deployment | Cloudflare Workers | Global edge |
@@ -44,7 +44,21 @@ docker compose up -d    # or Docker
 
 [Getting Started](https://github.com/sakeenah-wedding/template/wiki/Getting-Started) · [Deployment](https://github.com/sakeenah-wedding/template/wiki/Deployment) · [API](https://github.com/sakeenah-wedding/template/wiki/API-Reference) · [Architecture](https://github.com/sakeenah-wedding/template/wiki/Architecture) · [Structure](https://github.com/sakeenah-wedding/template/wiki/Project-Structure) · [Security](https://github.com/sakeenah-wedding/template/wiki/Security) · [Testing](https://github.com/sakeenah-wedding/template/wiki/Testing) · [Links](https://github.com/sakeenah-wedding/template/wiki/Personalized-Links)
 
+## Cloudflare D1 deployment
+
+1. Authenticate with `bunx wrangler login`, then create a D1 database with
+   `bunx wrangler d1 create undangan-jurnalku-db`.
+2. Copy `wrangler.jsonc.example` to `wrangler.jsonc` and replace
+   `database_id` with the ID returned by Wrangler. The example is set to the
+   `undangan-jurnalku` Worker and `undangan.jurnalku.id` custom domain.
+3. Apply the schema with
+   `bunx wrangler d1 migrations apply undangan-jurnalku-db --remote`.
+4. Add invitation, agenda, and bank-account records to D1, then run
+   `bun run deploy`.
+
+The D1 migration creates the API tables and indexes; it does not seed wedding
+content. Local development can continue to use PostgreSQL via `DATABASE_URL`.
+
 ---
 
 Apache 2.0 · [@mrofisr](https://github.com/mrofisr) · Built with [Vite](https://vite.dev/), [React](https://react.dev/), [Hono](https://hono.dev/) · Animations by [Motion](https://motion.dev/) · Icons by [Lucide](https://lucide.dev/)
-

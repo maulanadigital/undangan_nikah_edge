@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "sakeenah",
+  "name": "undangan-jurnalku",
   "main": "./src/server/index.js",
   "compatibility_date": "2025-11-17",
   "assets": {
@@ -10,12 +10,20 @@
     "not_found_handling": "single-page-application",
   },
   "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "undangan-jurnalku-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "./src/server/db/d1-migrations",
+    },
+  ],
   "vars": {
     "PORT": "3000",
   },
   "routes": [
     {
-      "pattern": "invitation.yourdomain.com",
+      "pattern": "undangan.jurnalku.id",
       "custom_domain": true
     },
   ],

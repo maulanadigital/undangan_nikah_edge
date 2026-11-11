@@ -1,17 +1,13 @@
 /**
  * Database connection helper
- * Supports both Cloudflare Workers (Hyperdrive) and Node.js/Bun environments.
+ * Supports Cloudflare D1, Cloudflare Hyperdrive, and Node.js/Bun PostgreSQL.
  *
- * Connection source resolution order (see spec: database-connection):
- *   1. Cloudflare Hyperdrive binding at `c.env.DB`
- *      - Hyperdrive exposes a *connection string*, typically at
- *        `c.env.DB.connectionString`. Some setups bind a plain string directly,
- *        so we accept `c.env.DB` itself when it is already a string.
- *   2. `c.env.DATABASE_URL` connection string (Wrangler dev / Node / Bun)
- *   3. Otherwise: throw a clear, actionable error.
+ * Cloudflare Workers use the D1 binding at `c.env.DB`. Node.js/Bun environments
+ * use `DATABASE_URL` and PostgreSQL. Hyperdrive connection strings remain
+ * supported for deployments that already use that binding.
  *
- * Pools are created lazily and cached per connection string for the lifetime of
- * the runtime instance, so we never construct a new pool per request.
+ * PostgreSQL pools are created lazily and cached per connection string for the
+ * lifetime of the runtime instance, so they are not constructed per request.
  */
 
 // Module-scoped cache: connectionString -> pg.Pool
@@ -19,29 +15,46 @@
 const poolCache = new Map();
 
 /**
- * Resolve the database connection string for the current request context.
- * @param {import('hono').Context} c - Hono context
- * @returns {string | null} The connection string, or null if none is configured
+ * Adapt numbered PostgreSQL placeholders and timestamp expressions for SQLite.
+ * @param {string} sql
+ * @returns {string}
  */
-function resolveConnectionString(c) {
-  const binding = c.env?.DB;
+function toD1Sql(sql) {
+  return sql
+    .replace(
+      /created_at\s+AT TIME ZONE 'UTC'\s+AT TIME ZONE 'Asia\/Jakarta'/gi,
+      "datetime(created_at, '+7 hours')",
+    )
+    .replace(
+      /CURRENT_TIMESTAMP\s+AT TIME ZONE 'Asia\/Jakarta'/gi,
+      "CURRENT_TIMESTAMP",
+    )
+    .replace(/\$\d+/g, "?");
+}
 
-  // Hyperdrive binding: prefer its connectionString, but accept a raw string.
-  if (binding) {
-    if (typeof binding === "string") {
-      return binding;
-    }
-    if (typeof binding.connectionString === "string") {
-      return binding.connectionString;
-    }
-  }
+/**
+ * Create the query interface used by the API routes for a D1 binding.
+ * @param {object} binding
+ * @returns {{ query: (sql: string, params?: unknown[]) => Promise<{ rows: object[], rowCount: number }> }}
+ */
+function createD1Client(binding) {
+  return {
+    async query(sql, params = []) {
+      const result = await binding
+        .prepare(toD1Sql(sql))
+        .bind(...params)
+        .all();
 
-  // Fallback: explicit DATABASE_URL (Wrangler dev with .env, Node/Bun).
-  if (typeof c.env?.DATABASE_URL === "string") {
-    return c.env.DATABASE_URL;
-  }
-
-  return null;
+      const rows = result.results ?? [];
+      const isWrite = /^(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(sql.trim());
+      return {
+        rows,
+        rowCount: isWrite
+          ? Number(result.meta?.changes ?? rows.length)
+          : rows.length,
+      };
+    },
+  };
 }
 
 /**
@@ -52,14 +65,21 @@ function resolveConnectionString(c) {
  * invitation, wishes, and stats routes.
  *
  * @param {import('hono').Context} c - Hono context
- * @returns {Promise<import('pg').Pool>} Database pool (cached per connection string)
+ * @returns {Promise<import('pg').Pool | ReturnType<typeof createD1Client>>}
  */
 export async function getDbClient(c) {
-  const connectionString = resolveConnectionString(c);
+  const binding = c.env?.DB;
 
-  if (!connectionString) {
+  if (binding && typeof binding.prepare === "function") {
+    return createD1Client(binding);
+  }
+
+  const connectionString =
+    (typeof binding === "string" ? binding : binding?.connectionString) ??
+    c.env?.DATABASE_URL;
+  if (typeof connectionString !== "string" || connectionString.length === 0) {
     throw new Error(
-      "No database connection available. Configure a Hyperdrive binding (env.DB) or DATABASE_URL.",
+      "No database connection available. Configure a D1 binding (env.DB), a Hyperdrive connection, or DATABASE_URL for local PostgreSQL.",
     );
   }
 

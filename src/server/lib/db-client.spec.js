@@ -40,6 +40,33 @@ describe("getDbClient", () => {
     poolInstances.length = 0;
   });
 
+  it("uses a D1 binding and adapts PostgreSQL query syntax", async () => {
+    const statement = {
+      bind: vi.fn().mockReturnThis(),
+      all: vi.fn(async () => ({
+        results: [{ created_at: "2025-06-15 17:00:00" }],
+        meta: { changes: 0 },
+      })),
+    };
+    const binding = { prepare: vi.fn(() => statement) };
+    const client = await getDbClient(ctx({ DB: binding }));
+
+    const result = await client.query(
+      "SELECT created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta' as created_at FROM wishes WHERE id = $1",
+      [7],
+    );
+
+    expect(binding.prepare).toHaveBeenCalledWith(
+      "SELECT datetime(created_at, '+7 hours') as created_at FROM wishes WHERE id = ?",
+    );
+    expect(statement.bind).toHaveBeenCalledWith(7);
+    expect(result).toEqual({
+      rows: [{ created_at: "2025-06-15 17:00:00" }],
+      rowCount: 1,
+    });
+    expect(PoolMock).not.toHaveBeenCalled();
+  });
+
   it("builds a client from a Hyperdrive binding connectionString", async () => {
     const connectionString = "postgres://hyperdrive-1/db";
     const client = await getDbClient(ctx({ DB: { connectionString } }));
@@ -86,7 +113,7 @@ describe("getDbClient", () => {
 
   it("throws a clear error when no connection source is configured", async () => {
     await expect(getDbClient(ctx({}))).rejects.toThrow(
-      /Hyperdrive binding.*DATABASE_URL/i,
+      /D1 binding.*DATABASE_URL/i,
     );
     expect(PoolMock).not.toHaveBeenCalled();
   });

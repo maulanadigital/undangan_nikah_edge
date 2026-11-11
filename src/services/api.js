@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 /**
  * Fetch all wishes for an invitation
@@ -8,7 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
  */
 export async function fetchWishes(uid, options = {}) {
   const { limit = 50, offset = 0 } = options;
-  const url = new URL(`${API_URL}/api/${uid}/wishes`);
+  const url = new URL(`${API_URL}/api/${uid}/wishes`, window.location.origin);
   url.searchParams.set("limit", limit);
   url.searchParams.set("offset", offset);
 

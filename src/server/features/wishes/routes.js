@@ -43,7 +43,7 @@ wishesRoutes.get("/", zValidator("query", wishesQuerySchema), async (c) => {
 
   // Get total count
   const countResult = await pool.query(
-    "SELECT COUNT(*) FROM wishes WHERE invitation_uid = $1",
+    "SELECT COUNT(*) AS count FROM wishes WHERE invitation_uid = $1",
     [uid],
   );
 
@@ -103,7 +103,10 @@ wishesRoutes.post("/", zValidator("json", createWishSchema), async (c) => {
     return c.json({ success: true, data: result.rows[0] }, 201);
   } catch (error) {
     // Handle database unique constraint violation
-    if (error.code === "23505") {
+    if (
+      error.code === "23505" ||
+      /UNIQUE constraint failed/i.test(error.message ?? "")
+    ) {
       throw new ConflictError(
         "You have already submitted a wish. Each guest can only send one wish.",
         "DUPLICATE_WISH",

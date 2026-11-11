@@ -71,6 +71,7 @@ describe("invitation routes", () => {
       expect(json.success).toBe(true);
       expect(json.data.groomName).toBe("Test Groom");
       expect(json.data.brideName).toBe("Test Bride");
+      expect(json.data.language).toBe("id");
       expect(json.data.agenda).toHaveLength(2);
       expect(json.data.banks).toHaveLength(2);
     });
