@@ -25,6 +25,13 @@ export const adminApi = {
   logout: () => request("/auth/logout", { method: "POST" }),
   changePassword: (body) => request("/auth/password", { method: "POST", body }),
   invitations: () => request("/invitations"),
+  invitationRequests: () => request("/requests"),
+  requestStats: () => request("/requests/stats"),
+  updateRequestStatus: (id, status) =>
+    request(`/requests/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: { status },
+    }),
   invitation: (uid) => request(`/invitations/${encodeURIComponent(uid)}`),
   createInvitation: (body) => request("/invitations", { method: "POST", body }),
   updateInvitation: (uid, body) =>
@@ -71,4 +78,16 @@ export const adminApi = {
     request(`/invitations/${encodeURIComponent(uid)}/wishes/${id}`, {
       method: "DELETE",
     }),
+  guests: (uid) =>
+    request(`/invitations/${encodeURIComponent(uid)}/guests`),
+  importGuests: (uid, guests) =>
+    request(`/invitations/${encodeURIComponent(uid)}/guests/import`, {
+      method: "POST",
+      body: { guests },
+    }),
+  deleteGuest: (uid, id) =>
+    request(
+      `/invitations/${encodeURIComponent(uid)}/guests/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    ),
 };

@@ -12,13 +12,22 @@ function base64Encode(str) {
   return Buffer.from(str, "utf-8").toString("base64");
 }
 
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function generateInvitationLink(
   uid,
   guestName,
   baseUrl = "http://localhost:5173",
 ) {
-  const encodedName = base64Encode(guestName);
-  return `${baseUrl}/${uid}?guest=${encodedName}`;
+  const slug = slugify(guestName);
+  return `${baseUrl}/${uid}/tamu/${slug}`;
 }
 
 // ===== CONFIGURATION =====

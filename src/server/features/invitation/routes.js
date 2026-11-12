@@ -8,8 +8,24 @@ import { zValidator } from "@hono/zod-validator";
 import { uidParamSchema } from "./invitation.schema.js";
 import { getDbClient } from "../../lib/db-client.js";
 import { NotFoundError } from "../../lib/errors.js";
+import { guestSlugSchema } from "../requests/request.schema.js";
 
 const invitationRoutes = new Hono();
+
+invitationRoutes.get(
+  "/:uid/guests/:slug",
+  zValidator("param", guestSlugSchema),
+  async (c) => {
+    const { uid, slug } = c.req.valid("param");
+    const db = await getDbClient(c);
+    const result = await db.query(
+      "SELECT id, name FROM guests WHERE invitation_uid = $1 AND slug = $2",
+      [uid, slug],
+    );
+    if (result.rows.length === 0) throw new NotFoundError("Guest not found");
+    return c.json({ success: true, data: result.rows[0] });
+  },
+);
 
 /**
  * GET /invitation/:uid

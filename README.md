@@ -62,12 +62,12 @@ content. Local development can continue to use PostgreSQL via `DATABASE_URL`.
 ## Admin dashboard
 
 The admin dashboard is available at `/admin`. The first administrator is
-restricted to the `ADMIN_EMAIL` configured in Wrangler. Before first use:
+restricted to the `ADMIN_USERNAME` configured in Wrangler. Before first use:
 
 1. Apply all D1 migrations, then set a one-time setup secret with
    `bunx wrangler secret put ADMIN_SETUP_TOKEN`. Use a random value of at least
    32 characters and keep it private.
-2. Visit `/admin`, enter the configured admin email, the setup secret, and a
+2. Visit `/admin`, enter the configured admin username, the setup secret, and a
    unique password of at least 12 characters.
 3. After the account is created, remove the one-time secret with
    `bunx wrangler secret delete ADMIN_SETUP_TOKEN`.
@@ -79,7 +79,7 @@ use secure HTTP-only cookies; login attempts are rate-limited. Never commit
 
 For PostgreSQL development, apply
 `src/server/db/migrations/002-admin-dashboard.sql` to the existing database and
-provide `ADMIN_EMAIL` plus `ADMIN_SETUP_TOKEN` to the local Worker environment.
+provide `ADMIN_USERNAME` plus `ADMIN_SETUP_TOKEN` to the local Worker environment.
 
 ---
 

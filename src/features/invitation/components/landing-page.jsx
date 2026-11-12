@@ -11,7 +11,7 @@ import {
 } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-const LandingPage = ({ onOpenInvitation }) => {
+const LandingPage = ({ onOpenInvitation, guest }) => {
   const config = useConfig(); // Use hook to get config from API or fallback to static
   const reduceMotion = useReducedMotionFlag();
   const fade = useMotionPreset("fade");
@@ -71,50 +71,86 @@ const LandingPage = ({ onOpenInvitation }) => {
               <div className={cn("h-px w-12 sm:w-16 bg-rose-200/50")} />
             </div>
 
-            {/* Date and Time */}
-            <motion.div
-              variants={fadeUp}
-              className={cn("flex flex-col gap-4 mb-6 sm:mb-8 items-center")}
-            >
-              <div
-                className={cn(
-                  "inline-flex flex-col items-center space-y-1 bg-white/80 px-4 sm:px-6 py-2 sm:py-3 rounded-xl",
-                )}
+            {!guest && (
+              <motion.div
+                variants={fadeUp}
+                className={cn("flex flex-col gap-4 mb-6 sm:mb-8 items-center")}
               >
-                <Calendar className={cn("w-5 h-5 text-rose-400")} />
-                <p className={cn("text-gray-700 font-medium")}>
-                  {formatEventDate(config.date)}
-                </p>
-              </div>
-
-              <div
-                className={cn(
-                  "inline-flex flex-col items-center space-y-1 bg-white/80 px-4 sm:px-6 py-2 sm:py-3 rounded-xl",
-                )}
-              >
-                <Clock className={cn("w-5 h-5 text-rose-400")} />
-                <p className={cn("text-gray-700 font-medium")}>{config.time}</p>
-              </div>
-            </motion.div>
-
-            {/* Couple Names */}
-            <motion.div
-              variants={fadeUp}
-              className={cn("text-center space-y-4")}
-            >
-              <div className={cn("space-y-2")}>
-                <h1
+                <div
                   className={cn(
-                    "text-3xl sm:text-4xl md:text-5xl font-serif text-gray-800 leading-tight",
+                    "inline-flex flex-col items-center space-y-1 bg-white/80 px-4 sm:px-6 py-2 sm:py-3 rounded-xl",
                   )}
                 >
-                  {config.groomName}
-                  <span className={cn("text-rose-400 mx-2 sm:mx-3")}>&</span>
-                  {config.brideName}
+                  <Calendar className={cn("w-5 h-5 text-rose-400")} />
+                  <p className={cn("text-gray-700 font-medium")}>
+                    {formatEventDate(config.date)}
+                  </p>
+                </div>
+
+                <div
+                  className={cn(
+                    "inline-flex flex-col items-center space-y-1 bg-white/80 px-4 sm:px-6 py-2 sm:py-3 rounded-xl",
+                  )}
+                >
+                  <Clock className={cn("w-5 h-5 text-rose-400")} />
+                  <p className={cn("text-gray-700 font-medium")}>
+                    {config.time}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Couple Names */}
+            {guest ? (
+              <motion.div
+                variants={fadeUp}
+                className="space-y-2 text-center"
+              >
+                <p className="text-sm text-stone-500">Undangan untuk</p>
+                <h1 className="font-serif text-3xl text-stone-800 sm:text-4xl">
+                  {guest.name}
                 </h1>
-                <div className={cn("h-px w-16 sm:w-24 mx-auto bg-rose-200")} />
-              </div>
-            </motion.div>
+              </motion.div>
+            ) : (
+              <motion.div
+                variants={fadeUp}
+                className={cn("text-center space-y-4")}
+              >
+                <div className={cn("space-y-2")}>
+                  <h1
+                    className={cn(
+                      "text-3xl sm:text-4xl md:text-5xl font-serif text-gray-800 leading-tight",
+                    )}
+                  >
+                    {config.groomName}
+                    <span className={cn("text-rose-400 mx-2 sm:mx-3")}>&</span>
+                    {config.brideName}
+                  </h1>
+                  <div
+                    className={cn("h-px w-16 sm:w-24 mx-auto bg-rose-200")}
+                  />
+                </div>
+                {(config.parentGroom || config.parentBride) && (
+                  <div className={cn("mt-2 rounded-lg bg-white/40 border border-rose-100/50 p-2 backdrop-blur-sm")}>
+                    <p className={cn("text-xs text-gray-400 uppercase tracking-wider mb-1")}>
+                      Orang Tua Mempelai
+                    </p>
+                    {config.parentGroom && (
+                      <p className={cn("text-sm text-stone-700 mb-1")}>
+                        <span className="font-medium">Pria:</span>{" "}
+                        {config.parentGroom}
+                      </p>
+                    )}
+                    {config.parentBride && (
+                      <p className={cn("text-sm text-stone-700")}>
+                        <span className="font-medium">Wanita:</span>{" "}
+                        {config.parentBride}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
 
             {/* Open Invitation Button */}
             <motion.div variants={fadeUp} className={cn("mt-6 sm:mt-8")}>

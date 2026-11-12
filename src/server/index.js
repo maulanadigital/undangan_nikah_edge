@@ -15,6 +15,7 @@ import { zValidator } from "@hono/zod-validator";
 // Feature routes and schemas
 import { invitationRoutes, wishesRoutes } from "./features/index.js";
 import adminRoutes from "./features/admin/routes.js";
+import requestRoutes from "./features/requests/routes.js";
 import { uidParamSchema } from "./features/invitation/invitation.schema.js";
 import { getDbClient } from "./lib/db-client.js";
 import { AppError } from "./lib/errors.js";
@@ -30,7 +31,7 @@ app.use(
   "*",
   cors({
     origin: ["*"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   }),
 );
 
@@ -76,6 +77,7 @@ app.onError((err, c) => {
 // Invitation routes: /api/invitation/:uid
 api.route("/invitation", invitationRoutes);
 api.route("/admin", adminRoutes);
+api.route("/requests", requestRoutes);
 
 // Wishes routes: /api/:uid/wishes/*
 api.route("/:uid/wishes", wishesRoutes);

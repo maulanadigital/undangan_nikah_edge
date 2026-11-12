@@ -11,6 +11,11 @@ import {
   setupSchema,
 } from "./admin.schema.js";
 import {
+  guestImportSchema,
+  requestIdSchema,
+  requestStatusSchema,
+} from "../requests/request.schema.js";
+import {
   hashClientAddress,
   hashOpaqueToken,
   hashPassword,
@@ -55,7 +60,7 @@ async function getAdministrator(c) {
   const tokenHash = await hashOpaqueToken(token);
   const db = await getDbClient(c);
   const result = await db.query(
-    `SELECT a.id, a.email
+    `SELECT a.id, a.username
        FROM admin_sessions s
        JOIN administrators a ON a.id = s.administrator_id
        WHERE s.token_hash = $1 AND s.expires_at > $2`,
@@ -78,6 +83,8 @@ async function requireAdministrator(c, next) {
 
 adminRoutes.use("/invitations", requireAdministrator);
 adminRoutes.use("/invitations/*", requireAdministrator);
+adminRoutes.use("/requests", requireAdministrator);
+adminRoutes.use("/requests/*", requireAdministrator);
 
 async function requireOwnedInvitation(c, db, uid) {
   const administrator = c.get("administrator");
@@ -114,7 +121,7 @@ function invitationValues(invitation) {
 adminRoutes.get("/auth/setup-status", async (c) => {
   const db = await getDbClient(c);
   const result = await db.query("SELECT COUNT(*) AS count FROM administrators");
-  const configured = Boolean(c.env?.ADMIN_EMAIL && c.env?.ADMIN_SETUP_TOKEN);
+  const configured = Boolean(c.env?.ADMIN_USERNAME && c.env?.ADMIN_SETUP_TOKEN);
   const setupRequired = Number(result.rows[0].count) === 0;
   return c.json({
     success: true,
@@ -123,11 +130,51 @@ adminRoutes.get("/auth/setup-status", async (c) => {
   });
 });
 
+adminRoutes.get("/requests/stats", async (c) => {
+  const db = await getDbClient(c);
+  const result = await db.query(
+    `SELECT COUNT(*) AS total,
+       SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+       SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) AS contacted,
+       SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved
+     FROM invitation_requests`,
+  );
+  return c.json({ success: true, data: result.rows[0] });
+});
+
+adminRoutes.get("/requests", async (c) => {
+  const db = await getDbClient(c);
+  const result = await db.query(
+    `SELECT id, groom_name, bride_name, event_date, whatsapp, status, created_at
+       FROM invitation_requests
+       ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'contacted' THEN 1 ELSE 2 END,
+                created_at DESC`,
+  );
+  return c.json({ success: true, data: result.rows });
+});
+
+adminRoutes.patch(
+  "/requests/:id",
+  zValidator("param", requestIdSchema),
+  zValidator("json", requestStatusSchema),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { status } = c.req.valid("json");
+    const db = await getDbClient(c);
+    const result = await db.query(
+      "UPDATE invitation_requests SET status = $1, updated_at = $2 WHERE id = $3",
+      [status, Math.floor(Date.now() / 1000), id],
+    );
+    if (result.rowCount === 0) throw new NotFoundError("Request not found");
+    return c.json({ success: true });
+  },
+);
+
 adminRoutes.post("/auth/setup", zValidator("json", setupSchema), async (c) => {
-  const { email, password, setupToken } = c.req.valid("json");
-  const configuredEmail = c.env?.ADMIN_EMAIL;
+  const { username, password, setupToken } = c.req.valid("json");
+  const configuredUsername = c.env?.ADMIN_USERNAME;
   const configuredToken = c.env?.ADMIN_SETUP_TOKEN;
-  if (!configuredEmail || !configuredToken) {
+  if (!configuredUsername || !configuredToken) {
     return c.json(
       { success: false, error: "Admin setup is not configured" },
       503,
@@ -135,7 +182,7 @@ adminRoutes.post("/auth/setup", zValidator("json", setupSchema), async (c) => {
   }
 
   if (
-    email.toLowerCase() !== configuredEmail.toLowerCase() ||
+    username.toLowerCase() !== configuredUsername.toLowerCase() ||
     !(await verifyOpaqueToken(setupToken, configuredToken))
   ) {
     throw new UnauthorizedError("Invalid setup credentials");
@@ -150,11 +197,11 @@ adminRoutes.post("/auth/setup", zValidator("json", setupSchema), async (c) => {
   const administratorId = crypto.randomUUID();
   const passwordCredentials = await hashPassword(password);
   await db.query(
-    `INSERT INTO administrators (id, email, password_salt, password_hash)
+    `INSERT INTO administrators (id, username, password_salt, password_hash)
        VALUES ($1, $2, $3, $4)`,
     [
       administratorId,
-      configuredEmail.toLowerCase(),
+      configuredUsername.toLowerCase(),
       passwordCredentials.salt,
       passwordCredentials.hash,
     ],
@@ -172,7 +219,7 @@ adminRoutes.post(
   "/auth/login",
   zValidator("json", credentialsSchema),
   async (c) => {
-    const { email, password } = c.req.valid("json");
+    const { username, password } = c.req.valid("json");
     const db = await getDbClient(c);
     const ipHash = await hashClientAddress(
       c.req.header("cf-connecting-ip") || "unknown",
@@ -196,9 +243,9 @@ adminRoutes.post(
     }
 
     const result = await db.query(
-      `SELECT id, email, password_salt, password_hash
-         FROM administrators WHERE email = $1`,
-      [email.toLowerCase()],
+      `SELECT id, username, password_salt, password_hash
+         FROM administrators WHERE username = $1`,
+      [username.toLowerCase()],
     );
     const administrator = result.rows[0];
     const validPassword = await verifyPassword(
@@ -223,7 +270,7 @@ adminRoutes.post(
           failures === 1 ? now : Number(attempt.window_started_at),
         ],
       );
-      throw new UnauthorizedError("Invalid email or password");
+      throw new UnauthorizedError("Invalid username or password");
     }
 
     await db.query("DELETE FROM admin_login_attempts WHERE ip_hash = $1", [
@@ -240,7 +287,7 @@ adminRoutes.post(
     c.header("Set-Cookie", sessionCookie(token));
     return c.json({
       success: true,
-      data: { email: administrator.email },
+      data: { username: administrator.username },
     });
   },
 );
@@ -370,6 +417,111 @@ adminRoutes.get(
         banks: bankResult.rows,
       },
     });
+  },
+);
+
+adminRoutes.get(
+  "/invitations/:uid/guests",
+  zValidator("param", adminUidSchema),
+  async (c) => {
+    const { uid } = c.req.valid("param");
+    const db = await getDbClient(c);
+    await requireOwnedInvitation(c, db, uid);
+    const result = await db.query(
+      `SELECT g.id, g.name, g.phone, g.slug, g.created_at,
+              w.attendance, w.created_at AS rsvp_at
+         FROM guests g
+         LEFT JOIN wishes w ON w.guest_id = g.id
+        WHERE g.invitation_uid = $1
+        ORDER BY LOWER(g.name)`,
+      [uid],
+    );
+    return c.json({ success: true, data: result.rows });
+  },
+);
+
+adminRoutes.post(
+  "/invitations/:uid/guests/import",
+  zValidator("param", adminUidSchema),
+  zValidator("json", guestImportSchema),
+  async (c) => {
+    const { uid } = c.req.valid("param");
+    const { guests } = c.req.valid("json");
+    const db = await getDbClient(c);
+    await requireOwnedInvitation(c, db, uid);
+    let inserted = 0;
+    let updated = 0;
+
+    for (const guest of guests) {
+      const phone = guest.phone.replace(/\D/g, "");
+      if (phone && (phone.length < 8 || phone.length > 15)) {
+        throw new AppError(`Nomor WhatsApp ${guest.name} tidak valid`, 400);
+      }
+    }
+
+    for (const guest of guests) {
+      const phone = guest.phone.replace(/\D/g, "");
+      const existing = await db.query(
+        "SELECT id FROM guests WHERE invitation_uid = $1 AND LOWER(name) = LOWER($2)",
+        [uid, guest.name],
+      );
+      if (existing.rows[0]) {
+        await db.query("UPDATE guests SET phone = CASE WHEN $1 = '' THEN phone ELSE $1 END WHERE id = $2", [
+          phone,
+          existing.rows[0].id,
+        ]);
+        updated += 1;
+        continue;
+      }
+
+      const baseSlug =
+        guest.name
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 120) || "tamu";
+      let slug = baseSlug;
+      let suffix = 2;
+      while (
+        (
+          await db.query(
+            "SELECT id FROM guests WHERE invitation_uid = $1 AND slug = $2",
+            [uid, slug],
+          )
+        ).rows.length
+      ) {
+        slug = `${baseSlug}-${suffix}`;
+        suffix += 1;
+      }
+      await db.query(
+        `INSERT INTO guests (id, invitation_uid, name, phone, slug)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [crypto.randomUUID(), uid, guest.name, phone, slug],
+      );
+      inserted += 1;
+    }
+
+    return c.json({ success: true, data: { inserted, updated } }, 201);
+  },
+);
+
+adminRoutes.delete(
+  "/invitations/:uid/guests/:id",
+  zValidator("param", adminUidSchema.extend({
+    id: requestIdSchema.shape.id,
+  })),
+  async (c) => {
+    const { uid, id } = c.req.valid("param");
+    const db = await getDbClient(c);
+    await requireOwnedInvitation(c, db, uid);
+    const result = await db.query(
+      "DELETE FROM guests WHERE id = $1 AND invitation_uid = $2",
+      [id, uid],
+    );
+    if (result.rowCount === 0) throw new NotFoundError("Guest not found");
+    return c.json({ success: true });
   },
 );
 

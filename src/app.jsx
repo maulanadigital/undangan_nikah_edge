@@ -54,7 +54,7 @@ const LandingPage = lazy(
  */
 function App() {
   const [isInvitationOpen, setIsInvitationOpen] = useState(false);
-  const { config, isLoading, error } = useInvitation();
+  const { config, guest, isLoading, guestLoading, error } = useInvitation();
   const pageEnter = useMotionPreset("pageEnter");
   const pageExit = useMotionPreset("pageExit");
 
@@ -103,7 +103,7 @@ function App() {
     <LanguageProvider language={activeConfig?.language || "en"}>
       {/* Loading overlay with exit animation */}
       <AnimatePresence>
-        {isLoading && (
+        {(isLoading || guestLoading) && (
           <motion.div
             key="loading-screen"
             initial={{ y: 0, opacity: 1 }}
@@ -168,7 +168,10 @@ function App() {
               animate="visible"
               exit={pageExit}
             >
-              <LandingPage onOpenInvitation={handleOpenInvitation} />
+              <LandingPage
+                guest={guest}
+                onOpenInvitation={handleOpenInvitation}
+              />
             </motion.div>
           ) : (
             <motion.div

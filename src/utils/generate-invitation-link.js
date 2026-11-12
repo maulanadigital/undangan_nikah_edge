@@ -14,11 +14,20 @@ import { safeBase64 } from "@/lib/base64";
  * generateInvitationLink('rifqi-dina-2025', 'Ahmad Abdullah', 'https://wedding.example.com')
  * // Returns: https://wedding.example.com/rifqi-dina-2025?guest=QWhtYWQgQWJkdWxsYWg=
  */
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function generateInvitationLink(uid, guestName, baseUrl) {
   const url =
     baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
-  const encodedName = safeBase64.encode(guestName);
-  return `${url}/${uid}?guest=${encodedName}`;
+  const slug = slugify(guestName);
+  return `${url}/${uid}/tamu/${slug}`;
 }
 
 /**

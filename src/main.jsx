@@ -22,6 +22,7 @@ import App from "./app.jsx";
 import "./index.css";
 import { InvitationProvider } from "./features/invitation";
 import AdminApp from "./features/admin/admin-app";
+import PublicHome from "./features/public/public-home";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -41,8 +42,17 @@ createRoot(document.getElementById("root")).render(
       <BrowserRouter>
         <Routes>
           <Route path="/admin/*" element={<AdminApp />} />
+          <Route path="/" element={<PublicHome />} />
           <Route
-            path="*"
+            path="/:uid/tamu/:slug"
+            element={
+              <InvitationProvider>
+                <App />
+              </InvitationProvider>
+            }
+          />
+          <Route
+            path="/:uid/*"
             element={
               <InvitationProvider>
                 <App />

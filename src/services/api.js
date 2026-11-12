@@ -52,9 +52,12 @@ export async function createWish(uid, wishData) {
  * @param {string} name - Guest name
  * @returns {Promise<object>} Response with hasSubmitted boolean
  */
-export async function checkWishSubmitted(uid, name) {
+export async function checkWishSubmitted(uid, value, isGuestId = false) {
+  const endpoint = isGuestId
+    ? `${API_URL}/api/${uid}/wishes/check-guest/${encodeURIComponent(value)}`
+    : `${API_URL}/api/${uid}/wishes/check/${encodeURIComponent(value)}`;
   const response = await fetch(
-    `${API_URL}/api/${uid}/wishes/check/${encodeURIComponent(name)}`,
+    endpoint,
   );
   if (!response.ok) {
     const error = await response.json();
@@ -89,4 +92,15 @@ export async function fetchInvitation(uid) {
     throw new Error(error.error || "Failed to fetch invitation");
   }
   return response.json();
+}
+
+export async function fetchInvitationGuest(uid, slug) {
+  const response = await fetch(
+    `${API_URL}/api/invitation/${encodeURIComponent(uid)}/guests/${encodeURIComponent(slug)}`,
+  );
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to fetch invited guest");
+  }
+  return data;
 }

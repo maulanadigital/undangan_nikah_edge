@@ -9,11 +9,8 @@ import { z } from "zod";
  * Validates incoming wish submissions with attendance tracking
  */
 export const createWishSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Name is required")
-    .max(100, "Name must be less than 100 characters")
-    .trim(),
+  name: z.string().min(1).max(100).trim().optional(),
+  guestId: z.string().uuid().optional(),
 
   message: z
     .string()
@@ -28,6 +25,9 @@ export const createWishSchema = z.object({
       }),
     })
     .default("MAYBE"),
+}).refine((value) => value.name || value.guestId, {
+  path: ["name"],
+  message: "Name or guest ID is required",
 });
 
 /**

@@ -10,7 +10,7 @@ const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60";
 
 function AuthForm({ setup, onSuccess }) {
-  const [email, setEmail] = useState("maulanacepti@gmail.com");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [setupToken, setSetupToken] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,10 +22,10 @@ function AuthForm({ setup, onSuccess }) {
     setError("");
     try {
       if (setup) {
-        await adminApi.setup({ email, password, setupToken });
+        await adminApi.setup({ username, password, setupToken });
       }
-      await adminApi.login({ email, password });
-      onSuccess({ email });
+      await adminApi.login({ username, password });
+      onSuccess({ username });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -55,15 +55,15 @@ function AuthForm({ setup, onSuccess }) {
         </p>
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <label className="block text-sm font-medium text-stone-700">
-            Email
+            Username
             <input
               className={fieldClass}
-              type="email"
+              type="text"
               autoComplete="username"
-              maxLength={254}
+              maxLength={64}
               required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
             />
           </label>
           {setup && (

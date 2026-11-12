@@ -3,15 +3,17 @@ import {
   BarChart3,
   CalendarDays,
   ExternalLink,
-  FileHeart,
   LogOut,
+  MessageSquareText,
   Plus,
   Settings,
   ShieldCheck,
   Trash2,
+  Users,
   Wallet,
 } from "lucide-react";
 import { adminApi } from "../admin-api";
+import { parseGuestCsv, parseGuestNames } from "../guest-import";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100";
@@ -522,6 +524,7 @@ function InvitationManager({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [detailTab, setDetailTab] = useState("settings");
 
   async function refreshDetail(uid = selectedUid) {
     if (!uid) return;
@@ -625,6 +628,23 @@ function InvitationManager({
           <Plus size={16} /> Undangan baru
         </button>
       </div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-2">
+        <article className="rounded-xl border border-stone-200 bg-white p-4">
+          <p className="text-sm text-stone-500">Jumlah undangan</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900">
+            {invitations.length}
+          </p>
+        </article>
+        <article className="rounded-xl border border-stone-200 bg-white p-4">
+          <p className="text-sm text-stone-500">Total RSVP dan ucapan</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900">
+            {invitations.reduce(
+              (total, invitation) => total + Number(invitation.wish_count || 0),
+              0,
+            )}
+          </p>
+        </article>
+      </div>
       <ErrorMessage>{error}</ErrorMessage>
       <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="h-fit rounded-xl border border-stone-200 bg-white p-3">
@@ -642,6 +662,7 @@ function InvitationManager({
               onClick={() => {
                 setCreating(false);
                 setSelectedUid(invitation.uid);
+                setDetailTab("settings");
               }}
             >
               <span className="block truncate">{invitation.title}</span>
@@ -685,6 +706,29 @@ function InvitationManager({
                   </button>
                 )}
               </div>
+              {editingExisting && (
+                <div className="mb-5 flex flex-wrap gap-2 border-b border-stone-100 pb-4">
+                  {[
+                    ["settings", "Pengaturan"],
+                    ["wishes", "Ucapan & RSVP"],
+                    ["guests", "Tamu"],
+                  ].map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                        detailTab === tab
+                          ? "bg-rose-50 text-rose-800"
+                          : "text-stone-600 hover:bg-stone-50"
+                      }`}
+                      onClick={() => setDetailTab(tab)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(creating || detailTab === "settings") && (
+                <>
               <form className="grid gap-4 sm:grid-cols-2" onSubmit={save}>
                 <Field
                   label="UID (tautan)"
@@ -830,6 +874,14 @@ function InvitationManager({
                   />
                 </>
               )}
+                </>
+              )}
+              {editingExisting && detailTab === "wishes" && (
+                <Wishes selectedUid={selectedUid} showNotice={showNotice} />
+              )}
+              {editingExisting && detailTab === "guests" && (
+                <GuestManager uid={selectedUid} showNotice={showNotice} />
+              )}
             </>
           ) : (
             <div className="py-12 text-center text-sm text-stone-500">
@@ -845,6 +897,7 @@ function InvitationManager({
 function Wishes({ selectedUid, showNotice }) {
   const [wishes, setWishes] = useState([]);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState(null);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState("");
 
@@ -856,8 +909,10 @@ function Wishes({ selectedUid, showNotice }) {
     }
     try {
       const response = await adminApi.wishes(selectedUid, offset);
+      const statsResponse = await adminApi.stats(selectedUid);
       setWishes(response.data);
       setTotal(response.pagination.total);
+      setStats(statsResponse.data);
       setError("");
     } catch (requestError) {
       setError(requestError.message);
@@ -886,6 +941,24 @@ function Wishes({ selectedUid, showNotice }) {
         <p className="mt-1 text-sm text-stone-500">
           Tinjau konfirmasi kehadiran dan moderasi pesan tamu.
         </p>
+      </div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Hadir", stats?.attending ?? 0],
+          ["Tidak hadir", stats?.not_attending ?? 0],
+          ["Belum pasti", stats?.maybe ?? 0],
+          ["Total RSVP", stats?.total ?? 0],
+        ].map(([label, value]) => (
+          <article
+            key={label}
+            className="rounded-xl border border-stone-200 bg-white p-4"
+          >
+            <p className="text-sm text-stone-500">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-stone-900">
+              {value}
+            </p>
+          </article>
+        ))}
       </div>
       <ErrorMessage>{error}</ErrorMessage>
       <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
@@ -944,6 +1017,358 @@ function Wishes({ selectedUid, showNotice }) {
             Berikutnya
           </button>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function RequestManager({ showNotice }) {
+  const [requests, setRequests] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(async () => {
+    try {
+      const [requestResponse, statsResponse] = await Promise.all([
+        adminApi.invitationRequests(),
+        adminApi.requestStats(),
+      ]);
+      setRequests(requestResponse.data);
+      setStats(statsResponse.data);
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function changeStatus(request, status) {
+    try {
+      await adminApi.updateRequestStatus(request.id, status);
+      await refresh();
+      showNotice("Status request diperbarui.");
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
+  function whatsappLink(request) {
+    const text = `Assalamu'alaikum ${request.groom_name} dan ${request.bride_name}, kami menerima request undangan untuk acara tanggal ${request.event_date}. Boleh kami bantu membahas detail undangannya?`;
+    return `https://wa.me/${request.whatsapp}?text=${encodeURIComponent(text)}`;
+  }
+
+  return (
+    <section>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-stone-900">
+          Request undangan
+        </h1>
+        <p className="mt-1 text-sm text-stone-500">
+          Hubungi calon pengguna secara manual melalui WhatsApp, lalu perbarui
+          status request.
+        </p>
+      </div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Semua request", stats?.total ?? 0],
+          ["Perlu dihubungi", stats?.pending ?? 0],
+          ["Sudah dihubungi", stats?.contacted ?? 0],
+          ["Disetujui", stats?.approved ?? 0],
+        ].map(([label, value]) => (
+          <article
+            key={label}
+            className="rounded-xl border border-stone-200 bg-white p-4"
+          >
+            <p className="text-sm text-stone-500">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-stone-900">
+              {value}
+            </p>
+          </article>
+        ))}
+      </div>
+      <ErrorMessage>{error}</ErrorMessage>
+      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="border-b border-stone-100 bg-stone-50 text-xs uppercase text-stone-500">
+            <tr>
+              <th className="px-4 py-3">Mempelai</th>
+              <th className="px-4 py-3">Tanggal acara</th>
+              <th className="px-4 py-3">WhatsApp</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Tindakan</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100">
+            {requests.map((request) => (
+              <tr key={request.id}>
+                <td className="px-4 py-3 font-medium text-stone-800">
+                  {request.groom_name} & {request.bride_name}
+                </td>
+                <td className="px-4 py-3 text-stone-600">
+                  {request.event_date}
+                </td>
+                <td className="px-4 py-3 text-stone-600">
+                  +{request.whatsapp}
+                </td>
+                <td className="px-4 py-3">
+                  <select
+                    className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-xs"
+                    value={request.status}
+                    onChange={(event) =>
+                      changeStatus(request, event.target.value)
+                    }
+                    aria-label={`Status request ${request.groom_name} dan ${request.bride_name}`}
+                  >
+                    <option value="pending">Perlu dihubungi</option>
+                    <option value="contacted">Sudah dihubungi</option>
+                    <option value="approved">Disetujui</option>
+                    <option value="rejected">Ditolak</option>
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <a
+                    className={secondaryButton}
+                    href={whatsappLink(request)}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => {
+                      if (request.status === "pending") {
+                        changeStatus(request, "contacted");
+                      }
+                    }}
+                  >
+                    <MessageSquareText size={15} /> Hubungi
+                  </a>
+                </td>
+              </tr>
+            ))}
+            {!requests.length && (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-stone-500">
+                  Belum ada request undangan.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function GuestManager({ uid, showNotice }) {
+  const [guests, setGuests] = useState([]);
+  const [bulkText, setBulkText] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await adminApi.guests(uid);
+      setGuests(response.data);
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }, [uid]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function importGuests(rows) {
+    if (!rows.length) {
+      setError("Tidak ada nama tamu yang dapat diimpor.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await adminApi.importGuests(uid, rows);
+      setBulkText("");
+      await refresh();
+      showNotice(
+        `${response.data.inserted} tamu ditambahkan, ${response.data.updated} diperbarui.`,
+      );
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadCsv(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await importGuests(parseGuestCsv(await file.text()));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function remove(guest) {
+    if (
+      !window.confirm(
+        `Hapus tamu ${guest.name}? Data RSVP/ucapannya yang sudah masuk tetap disimpan.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await adminApi.deleteGuest(uid, guest.id);
+      await refresh();
+      showNotice("Tamu dihapus.");
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
+  function inviteUrl(guest) {
+    return `${window.location.origin}/${uid}/tamu/${guest.slug}`;
+  }
+
+  function whatsappUrl(guest) {
+    const text = `Assalamu'alaikum ${guest.name}, kami mengundang Anda ke acara pernikahan kami. Silakan buka undangan berikut: ${inviteUrl(guest)}`;
+    return `https://wa.me/${guest.phone || ""}?text=${encodeURIComponent(text)}`;
+  }
+
+  async function copyLink(guest) {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(guest));
+      showNotice(`Link undangan untuk ${guest.name} disalin.`);
+    } catch (requestError) {
+      setError(`Gagal menyalin link: ${requestError.message}`);
+    }
+  }
+
+  const invited = guests.filter((guest) => guest.attendance).length;
+  const attending = guests.filter(
+    (guest) => guest.attendance === "ATTENDING",
+  ).length;
+
+  return (
+    <section>
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-stone-900">Daftar tamu</h2>
+        <p className="mt-1 text-sm text-stone-500">
+          Impor CSV atau tempel nama tamu. Tautan personal dan pesan WhatsApp
+          dibuat untuk setiap tamu.
+        </p>
+      </div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        {[
+          ["Jumlah tamu", guests.length],
+          ["Sudah RSVP", invited],
+          ["Konfirmasi hadir", attending],
+        ].map(([label, value]) => (
+          <article
+            key={label}
+            className="rounded-xl border border-stone-200 bg-white p-4"
+          >
+            <p className="text-sm text-stone-500">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-stone-900">
+              {value}
+            </p>
+          </article>
+        ))}
+      </div>
+      <ErrorMessage>{error}</ErrorMessage>
+      <div className="mb-5 grid gap-4 rounded-xl border border-stone-200 bg-white p-5 md:grid-cols-[1fr_auto]">
+        <div>
+          <TextArea
+            label="Tempel nama (satu per baris, atau pisahkan dengan koma/titik koma)"
+            value={bulkText}
+            onChange={setBulkText}
+            rows={4}
+          />
+          <p className="mt-1 text-xs text-stone-500">
+            Untuk nomor WhatsApp, unggah CSV dengan kolom `nama,whatsapp`.
+          </p>
+        </div>
+        <div className="flex flex-col justify-end gap-2">
+          <button
+            className={primaryButton}
+            disabled={busy || !bulkText.trim()}
+            onClick={() => importGuests(parseGuestNames(bulkText))}
+          >
+            <Plus size={16} /> Tambahkan nama
+          </button>
+          <label className={`${secondaryButton} cursor-pointer`}>
+            <Users size={15} /> Impor CSV
+            <input
+              className="sr-only"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={uploadCsv}
+            />
+          </label>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+        <table className="w-full min-w-[740px] text-left text-sm">
+          <thead className="border-b border-stone-100 bg-stone-50 text-xs uppercase text-stone-500">
+            <tr>
+              <th className="px-4 py-3">Nama tamu</th>
+              <th className="px-4 py-3">WhatsApp</th>
+              <th className="px-4 py-3">RSVP</th>
+              <th className="px-4 py-3">Link personal</th>
+              <th className="px-4 py-3">Tindakan</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100">
+            {guests.map((guest) => (
+              <tr key={guest.id}>
+                <td className="px-4 py-3 font-medium text-stone-800">
+                  {guest.name}
+                </td>
+                <td className="px-4 py-3 text-stone-600">
+                  {guest.phone ? `+${guest.phone}` : "—"}
+                </td>
+                <td className="px-4 py-3 text-stone-600">
+                  {guest.attendance || "Belum RSVP"}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    className="text-rose-700 hover:underline"
+                    onClick={() => copyLink(guest)}
+                  >
+                    /{uid}/to/{guest.slug}
+                  </button>
+                </td>
+                <td className="flex items-center gap-2 px-4 py-3">
+                  <a
+                    className={secondaryButton}
+                    href={whatsappUrl(guest)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <MessageSquareText size={15} /> WhatsApp
+                  </a>
+                  <button
+                    className="rounded-lg p-2 text-rose-700 hover:bg-rose-50"
+                    aria-label={`Hapus ${guest.name}`}
+                    onClick={() => remove(guest)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!guests.length && (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-stone-500">
+                  Belum ada tamu yang ditambahkan.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -1059,7 +1484,7 @@ export default function AdminDashboard({ administrator, onLogout }) {
     () => [
       { id: "overview", label: "Ringkasan", icon: BarChart3 },
       { id: "invitations", label: "Undangan", icon: CalendarDays },
-      { id: "wishes", label: "Ucapan & RSVP", icon: FileHeart },
+      { id: "requests", label: "Request", icon: MessageSquareText },
       { id: "settings", label: "Pengaturan", icon: Settings },
     ],
     [],
@@ -1082,7 +1507,7 @@ export default function AdminDashboard({ administrator, onLogout }) {
           </a>
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-stone-600 sm:inline">
-              {administrator.email}
+              {administrator.username}
             </span>
             <button className={secondaryButton} onClick={logout}>
               <LogOut size={15} /> Keluar
@@ -1131,9 +1556,7 @@ export default function AdminDashboard({ administrator, onLogout }) {
               showNotice={showNotice}
             />
           )}
-          {section === "wishes" && (
-            <Wishes selectedUid={selectedUid} showNotice={showNotice} />
-          )}
+          {section === "requests" && <RequestManager showNotice={showNotice} />}
           {section === "settings" && <SettingsPanel showNotice={showNotice} />}
         </main>
       </div>

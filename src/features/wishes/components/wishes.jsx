@@ -20,12 +20,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatEventDate } from "@/lib/format-event-date";
 import { useInvitation } from "@/features/invitation";
 import { fetchWishes, createWish, checkWishSubmitted } from "@/services/api";
-import { getGuestName } from "@/lib/invitation-storage";
 import { useMotionPreset, staggerContainer, stagger } from "@/lib/motion";
 import { useTranslation } from "@/lib/i18n";
 
 export default function Wishes() {
-  const { uid } = useInvitation();
+  const { uid, guest } = useInvitation();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fade = useMotionPreset("fade");
@@ -42,21 +41,22 @@ export default function Wishes() {
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedWish, setSelectedWish] = useState(null);
 
-  // Get guest name from localStorage
   useEffect(() => {
-    const storedGuestName = getGuestName();
-    if (storedGuestName) {
-      setGuestName(storedGuestName);
+    if (guest?.name) {
+      setGuestName(guest.name);
       setIsNameFromInvitation(true);
+    } else {
+      setGuestName("");
+      setIsNameFromInvitation(false);
     }
-  }, []);
+  }, [guest]);
 
   // Check if guest has already submitted a wish
   useEffect(() => {
     const checkSubmissionStatus = async () => {
-      if (uid && guestName && isNameFromInvitation) {
+      if (uid && guest?.id) {
         try {
-          const response = await checkWishSubmitted(uid, guestName);
+          const response = await checkWishSubmitted(uid, guest.id, true);
           if (response.success && response.hasSubmitted) {
             setHasSubmittedWish(true);
           }
@@ -68,7 +68,7 @@ export default function Wishes() {
     };
 
     checkSubmissionStatus();
-  }, [uid, guestName, isNameFromInvitation]);
+  }, [uid, guest]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -164,6 +164,7 @@ export default function Wishes() {
 
     createWishMutation.mutate({
       name: guestName.trim(),
+      ...(guest?.id ? { guestId: guest.id } : {}),
       message: newWish.trim(),
       attendance: attendance || "MAYBE",
     });

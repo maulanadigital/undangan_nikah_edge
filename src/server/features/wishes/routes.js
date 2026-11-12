@@ -64,7 +64,8 @@ wishesRoutes.get("/", zValidator("query", wishesQuerySchema), async (c) => {
  */
 wishesRoutes.post("/", zValidator("json", createWishSchema), async (c) => {
   const uid = c.req.param("uid");
-  const { name, message, attendance } = c.req.valid("json");
+  const { name: submittedName, guestId, message, attendance } =
+    c.req.valid("json");
 
   const pool = await getDbClient(c);
 
@@ -77,11 +78,26 @@ wishesRoutes.post("/", zValidator("json", createWishSchema), async (c) => {
     throw new NotFoundError("Invitation not found");
   }
 
+  let name = submittedName;
+  if (guestId) {
+    const guest = await pool.query(
+      "SELECT id, name FROM guests WHERE id = $1 AND invitation_uid = $2",
+      [guestId, uid],
+    );
+    if (guest.rows.length === 0) throw new NotFoundError("Guest not found");
+    name = guest.rows[0].name;
+  }
+
   // Check if guest has already submitted a wish
-  const existingWish = await pool.query(
-    "SELECT id FROM wishes WHERE invitation_uid = $1 AND name = $2",
-    [uid, name],
-  );
+  const existingWish = guestId
+    ? await pool.query(
+        "SELECT id FROM wishes WHERE invitation_uid = $1 AND guest_id = $2",
+        [uid, guestId],
+      )
+    : await pool.query(
+        "SELECT id FROM wishes WHERE invitation_uid = $1 AND name = $2",
+        [uid, name],
+      );
 
   if (existingWish.rows.length > 0) {
     throw new ConflictError(
@@ -93,11 +109,11 @@ wishesRoutes.post("/", zValidator("json", createWishSchema), async (c) => {
   // Insert wish
   try {
     const result = await pool.query(
-      `INSERT INTO wishes (invitation_uid, name, message, attendance, created_at)
-         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')
-         RETURNING id, name, message, attendance,
+      `INSERT INTO wishes (invitation_uid, guest_id, name, message, attendance, created_at)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')
+         RETURNING id, guest_id, name, message, attendance,
                    created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta' as created_at`,
-      [uid, name, message, attendance],
+      [uid, guestId || null, name, message, attendance],
     );
 
     return c.json({ success: true, data: result.rows[0] }, 201);
@@ -114,6 +130,23 @@ wishesRoutes.post("/", zValidator("json", createWishSchema), async (c) => {
     }
     throw error;
   }
+});
+
+// Check RSVP state through the personal invitation link.
+wishesRoutes.get("/check-guest/:guestId", async (c) => {
+  const uid = c.req.param("uid");
+  const guestId = c.req.param("guestId");
+  const db = await getDbClient(c);
+  const guest = await db.query(
+    "SELECT id FROM guests WHERE id = $1 AND invitation_uid = $2",
+    [guestId, uid],
+  );
+  if (guest.rows.length === 0) throw new NotFoundError("Guest not found");
+  const wish = await db.query(
+    "SELECT id FROM wishes WHERE invitation_uid = $1 AND guest_id = $2",
+    [uid, guestId],
+  );
+  return c.json({ success: true, hasSubmitted: wish.rows.length > 0 });
 });
 
 /**

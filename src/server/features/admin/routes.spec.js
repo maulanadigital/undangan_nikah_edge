@@ -10,7 +10,7 @@ vi.mock("../../lib/db-client.js", () => ({
 
 const origin = "https://example.test";
 const setupToken = "a".repeat(48);
-const email = "admin@example.test";
+const username = "admin";
 let credentials;
 
 describe("admin authentication routes", () => {
@@ -36,7 +36,7 @@ describe("admin authentication routes", () => {
       {},
       {
         DB: {},
-        ADMIN_EMAIL: email,
+        ADMIN_USERNAME: username,
         ADMIN_SETUP_TOKEN: setupToken,
       },
     );
@@ -55,7 +55,7 @@ describe("admin authentication routes", () => {
         Origin: "https://attacker.test",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password: "correct horse battery staple" }),
+      body: JSON.stringify({ username, password: "correct horse battery staple" }),
     });
 
     expect(response.status).toBe(403);
@@ -75,19 +75,19 @@ describe("admin authentication routes", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          username,
           password: "correct horse battery staple",
           setupToken,
         }),
       },
-      { DB: {}, ADMIN_EMAIL: email, ADMIN_SETUP_TOKEN: setupToken },
+      { DB: {}, ADMIN_USERNAME: username, ADMIN_SETUP_TOKEN: setupToken },
     );
 
     expect(response.status).toBe(201);
     const insertCall = query.mock.calls.find(([sql]) =>
       sql.includes("INSERT INTO administrators"),
     );
-    expect(insertCall[1][1]).toBe(email);
+    expect(insertCall[1][1]).toBe(username);
     expect(
       await verifyPassword(
         "correct horse battery staple",
@@ -112,12 +112,12 @@ describe("admin authentication routes", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          username,
           password: "correct horse battery staple",
           setupToken,
         }),
       },
-      { DB: {}, ADMIN_EMAIL: email, ADMIN_SETUP_TOKEN: setupToken },
+      { DB: {}, ADMIN_USERNAME: username, ADMIN_SETUP_TOKEN: setupToken },
     );
 
     expect(response.status).toBe(409);
@@ -127,12 +127,12 @@ describe("admin authentication routes", () => {
   it("creates a secure server-side session for valid credentials", async () => {
     query.mockImplementation(async (sql) => {
       if (sql.includes("SELECT failures")) return { rows: [] };
-      if (sql.includes("FROM administrators WHERE email")) {
+      if (sql.includes("FROM administrators WHERE username")) {
         return {
           rows: [
             {
               id: "admin-1",
-              email,
+              username,
               password_salt: credentials.salt,
               password_hash: credentials.hash,
             },
@@ -149,7 +149,7 @@ describe("admin authentication routes", () => {
         "CF-Connecting-IP": "192.0.2.1",
       },
       body: JSON.stringify({
-        email,
+        username,
         password: "correct horse battery staple",
       }),
     });
@@ -162,7 +162,7 @@ describe("admin authentication routes", () => {
       expect.stringContaining("INSERT INTO admin_sessions"),
       [expect.any(String), "admin-1", expect.any(Number)],
     );
-    expect(await response.json()).toEqual({ success: true, data: { email } });
+    expect(await response.json()).toEqual({ success: true, data: { username } });
   });
 
   it("rate-limits repeated bad login attempts", async () => {
@@ -178,7 +178,7 @@ describe("admin authentication routes", () => {
         "Content-Type": "application/json",
         "CF-Connecting-IP": "192.0.2.2",
       },
-      body: JSON.stringify({ email, password: "wrong password" }),
+      body: JSON.stringify({ username, password: "wrong password" }),
     });
 
     expect(response.status).toBe(429);

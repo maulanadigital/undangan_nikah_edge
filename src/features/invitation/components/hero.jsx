@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useConfig } from "@/features/invitation/hooks/use-config";
 import { formatEventDate } from "@/lib/format-event-date";
-import { getGuestName } from "@/lib/invitation-storage";
+import { useInvitation } from "@/features/invitation";
 import { useTranslation } from "@/lib/i18n";
 import {
   useMotionPreset,
@@ -17,19 +17,12 @@ import {
 export default function Hero() {
   const { t } = useTranslation();
   const config = useConfig(); // Use hook to get config from API or fallback to static
-  const [guestName, setGuestName] = useState("");
+  const { guest } = useInvitation();
+  const guestName = guest?.name || "";
   const reduceMotion = useReducedMotionFlag();
   const fade = useMotionPreset("fade");
   const fadeUp = useMotionPreset("fadeUp");
   const scaleIn = useMotionPreset("scaleIn");
-
-  useEffect(() => {
-    // Get guest name from localStorage
-    const storedGuestName = getGuestName();
-    if (storedGuestName) {
-      setGuestName(storedGuestName);
-    }
-  }, []);
 
   const CountdownTimer = ({ targetDate }) => {
     const calculateTimeLeft = useCallback(() => {
@@ -179,6 +172,19 @@ export default function Hero() {
             >
               {config.groomName} & {config.brideName}
             </motion.h2>
+            {(config.parentGroom || config.parentBride) && (
+              <p className="mx-auto max-w-xl text-sm leading-6 text-gray-500">
+                {config.parentGroom && (
+                  <span>
+                    Putra dari {config.parentGroom}
+                    {config.parentBride ? " · " : ""}
+                  </span>
+                )}
+                {config.parentBride && (
+                  <span>Putri dari {config.parentBride}</span>
+                )}
+              </p>
+            )}
           </div>
 
           <motion.div
@@ -256,6 +262,31 @@ export default function Hero() {
                     {guestName || t("hero.guestFallback")}
                   </p>
                 </motion.div>
+
+                {config.parentGroom || config.parentBride ? (
+                  <motion.div
+                    variants={fade}
+                    className={cn(
+                      "mt-4 rounded-xl bg-white/40 border border-rose-100/50 p-3 backdrop-blur-sm",
+                    )}
+                  >
+                    <p className={cn("text-xs text-gray-400 uppercase tracking-wider mb-2")}>
+                      Orang Tua Mempelai
+                    </p>
+                    {config.parentGroom && (
+                      <p className={cn("text-sm text-stone-700 mb-1")}>
+                        <span className="font-medium">Pria:</span>{" "}
+                        {config.parentGroom}
+                      </p>
+                    )}
+                    {config.parentBride && (
+                      <p className={cn("text-sm text-stone-700")}>
+                        <span className="font-medium">Wanita:</span>{" "}
+                        {config.parentBride}
+                      </p>
+                    )}
+                  </motion.div>
+                ) : null}
               </div>
 
               <div

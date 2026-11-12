@@ -33,7 +33,7 @@ const mapsEmbedUrl = z
   }, "Embed must be a Google Maps HTTPS embed URL");
 
 export const credentialsSchema = z.object({
-  email: z.string().trim().email().max(254),
+  username: z.string().trim().min(3).max(64).regex(/^[a-z0-9_-]+$/, "Username hanya boleh huruf kecil, angka, garis bawah, dan strip"),
   password: z.string().min(12).max(128),
 });
 

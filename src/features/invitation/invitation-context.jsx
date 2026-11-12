@@ -1,12 +1,11 @@
 import { useMemo, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchInvitation } from "@/services/api";
+import { fetchInvitation, fetchInvitationGuest } from "@/services/api";
 import {
   getWeddingUid,
   storeWeddingUid,
   storeGuestName,
-  hasInvitationData,
 } from "@/lib/invitation-storage";
 import { safeBase64 } from "@/lib/base64";
 import { InvitationContext } from "./invitation-context-definition";
@@ -34,7 +33,9 @@ import { InvitationContext } from "./invitation-context-definition";
  */
 export function InvitationProvider({ children }) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const guestSlug =
+    pathSegments[1] === "tamu" ? (pathSegments[2] ?? null) : null;
 
   const invitationUid = useMemo(() => {
     // Extract UID from URL first (to check if it's different)
@@ -88,42 +89,21 @@ export function InvitationProvider({ children }) {
     return null;
   }, [location.pathname, location.search]);
 
-  // Extract and store guest name from URL, then clean URL
+  const legacyGuestName = useMemo(() => {
+    const guestParam = new URLSearchParams(location.search).get("guest");
+    if (!guestParam) return null;
+    try {
+      return safeBase64.decode(guestParam) || null;
+    } catch (error) {
+      console.error("Error decoding guest name:", error);
+      return null;
+    }
+  }, [location.search]);
+
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const guestParam = urlParams.get("guest");
-
-    // Store guest name if present (even if different from stored - auto-update)
-    if (guestParam) {
-      try {
-        const decodedName = safeBase64.decode(guestParam);
-        if (decodedName) {
-          const storedName = localStorage.getItem("sakeenah_guest_name");
-          if (decodedName !== storedName) {
-            console.log(
-              `Updating guest name from "${storedName}" to "${decodedName}"`,
-            );
-          }
-          storeGuestName(decodedName);
-        }
-      } catch (error) {
-        console.error("Error decoding guest name:", error);
-      }
-    }
-
-    // Clean URL if we have UID in path or guest in query params
-    const hasUidInPath = location.pathname !== "/" && location.pathname !== "";
-    const hasGuestParam = urlParams.has("guest");
-    const hasUidParam = urlParams.has("uid");
-
-    if (hasUidInPath || hasGuestParam || hasUidParam) {
-      // Only clean URL if we have data stored
-      if (hasInvitationData()) {
-        // Use window.history.replaceState for clean URL without reload
-        window.history.replaceState({}, "", "/");
-      }
-    }
-  }, [location.pathname, location.search, navigate]);
+    if (invitationUid) storeWeddingUid(invitationUid);
+    if (legacyGuestName) storeGuestName(legacyGuestName);
+  }, [invitationUid, legacyGuestName]);
 
   const {
     data: config,
@@ -142,9 +122,26 @@ export function InvitationProvider({ children }) {
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
+  const guestQuery = useQuery({
+    queryKey: ["invitation-guest", invitationUid, guestSlug],
+    queryFn: async () => {
+      const response = await fetchInvitationGuest(invitationUid, guestSlug);
+      return response.data;
+    },
+    enabled: Boolean(invitationUid && guestSlug),
+    staleTime: 10 * 60 * 1000,
+  });
+
   return (
     <InvitationContext.Provider
-      value={{ uid: invitationUid, config, isLoading, error: error?.message }}
+      value={{
+        uid: invitationUid,
+        config,
+        guest: guestQuery.data || (legacyGuestName ? { name: legacyGuestName } : null),
+        isLoading,
+        guestLoading: guestQuery.isLoading,
+        error: error?.message || guestQuery.error?.message,
+      }}
     >
       {children}
     </InvitationContext.Provider>
