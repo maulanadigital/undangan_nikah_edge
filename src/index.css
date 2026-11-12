@@ -3,6 +3,17 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Theme Support */
+:root {
+  --bs-body-color: #1c1917;
+  --bs-body-bg: #ffffff;
+}
+
+[data-bs-theme="dark"] {
+  --bs-body-color: #fafaf9;
+  --bs-body-bg: #0c0a09;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -117,6 +128,112 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Font families */
+  .font-arabic {
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+  }
+  
+  .font-esthetic {
+    font-family: 'Instrument Serif', serif;
+  }
+  
+  /* Theme colors */
+  .bg-white-black {
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+  
+  .dark .bg-white-black {
+    background-color: rgba(12, 10, 9, 0.95);
+  }
+  
+  .bg-light-dark {
+    background-color: #f5f5f4;
+  }
+  
+  .dark .bg-light-dark {
+    background-color: #1c1917;
+  }
+  
+  .bg-theme-auto {
+    background-color: var(--bs-body-bg);
+  }
+  
+  .text-theme-auto {
+    color: var(--bs-body-color);
+  }
+  
+  .color-theme-svg {
+    color: var(--bs-body-color);
+  }
+  
+  .bg-overlay-auto {
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+  }
+  
+  .dark .bg-overlay-auto {
+    background-color: rgba(12, 10, 9, 0.8);
+  }
+  
+  .bg-cover-home {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .img-center-crop {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  
+  .no-gap-bottom {
+    margin-bottom: -1px;
+  }
+  
+  /* Scrollbar styling */
+  .with-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .with-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .with-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  
+  .dark .with-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+  
+  /* Animation */
+  @keyframes spin-button {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  .spin-button {
+    animation: spin-button 1s linear infinite;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 576px) {
+    .svg-wrapper svg {
+      display: none;
+    }
   }
 }
 

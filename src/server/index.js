@@ -38,7 +38,7 @@ app.use(
 // ============ Global Error Handler ============
 
 app.onError((err, c) => {
-  console.error(`[Error] ${err.name}: ${err.message}`);
+  console.error(`[Error] ${err.name}: ${err.message}`, err);
 
   if (err instanceof AppError) {
     return c.json(

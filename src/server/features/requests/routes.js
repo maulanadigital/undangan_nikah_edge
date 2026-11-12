@@ -36,7 +36,7 @@ requestRoutes.post("/", zValidator("json", invitationRequestSchema), async (c) =
   await db.query(
     `INSERT INTO invitation_requests
        (id, groom_name, bride_name, event_date, whatsapp, ip_hash, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       crypto.randomUUID(),
       request.groomName,
@@ -44,6 +44,7 @@ requestRoutes.post("/", zValidator("json", invitationRequestSchema), async (c) =
       request.eventDate,
       whatsapp,
       ipHash,
+      now,
       now,
     ],
   );
@@ -66,7 +67,7 @@ requestRoutes.onError((error, c) => {
       400,
     );
   }
-  console.error(`[Invitation request API] ${error.name}: ${error.message}`);
+  console.error(`[Invitation request API] ${error.name}: ${error.message}`, error);
   return c.json({ success: false, error: "Internal server error" }, 500);
 });
 

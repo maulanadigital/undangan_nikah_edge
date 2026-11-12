@@ -1165,6 +1165,16 @@ function GuestManager({ uid, showNotice }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const csvTemplateUrl = useMemo(() => {
+    const header = ["nama", "whatsapp"].join(",");
+    const example1 = ["John Doe", "628123456789"].join(",");
+    const example2 = ["Jane Smith", "628987654321"].join(",");
+    const csvContent = [header, example1, example2].join("\n");
+    return URL.createObjectURL(
+      new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    );
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const response = await adminApi.guests(uid);
@@ -1279,6 +1289,15 @@ function GuestManager({ uid, showNotice }) {
         ))}
       </div>
       <ErrorMessage>{error}</ErrorMessage>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <a
+          href={csvTemplateUrl}
+          download="template-tamu.csv"
+          className={secondaryButton}
+        >
+          <i className="fa-solid fa-file-csv me-1" /> Unduh Template CSV
+        </a>
+      </div>
       <div className="mb-5 grid gap-4 rounded-xl border border-stone-200 bg-white p-5 md:grid-cols-[1fr_auto]">
         <div>
           <TextArea
